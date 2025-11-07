@@ -256,7 +256,6 @@ export function HeroRateScatter({
               type="number"
               dataKey="pickRate"
               name="Pick Rate"
-              unit="%"
               tickFormatter={percentFormatter}
               domain={pickDomain}
               tick={{ fill: "#c7d2fe", fontSize: 12 }}
@@ -267,7 +266,6 @@ export function HeroRateScatter({
               type="number"
               dataKey="winRate"
               name="Win Rate"
-              unit="%"
               tickFormatter={percentFormatter}
               domain={winDomain}
               tick={{ fill: "#c7d2fe", fontSize: 12 }}
