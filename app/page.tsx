@@ -217,12 +217,6 @@ export default async function Home({
                 <span>Cache window: 15 minutes</span>
               </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button variant="secondary" className="w-full sm:w-auto">
-                Export CSV
-              </Button>
-              <Button className="w-full sm:w-auto">Refresh data</Button>
-            </div>
           </div>
         </header>
 
