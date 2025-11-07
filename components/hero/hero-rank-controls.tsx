@@ -164,15 +164,6 @@ export function HeroRankControls({ days, rank }: HeroRankControlsProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </label>
-
-            <Button
-              variant="ghost"
-              onClick={handleReset}
-              disabled={pending}
-              className="text-white/70 hover:text-white"
-            >
-              Reset
-            </Button>
           </div>
         </div>
       </div>
