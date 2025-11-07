@@ -1,7 +1,26 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "akmweb.youngjoygame.com",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.id-mpl.com",
+      },
+      {
+        protocol: "https",
+        hostname: "wsrv.nl",
+      },
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

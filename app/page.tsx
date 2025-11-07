@@ -1,64 +1,250 @@
-import Image from "next/image";
+import { HeroRankControls } from "@/components/hero/hero-rank-controls";
+import { heroRankColumns } from "@/components/hero/hero-rank-columns";
+import { HeroRankSection } from "@/components/hero/hero-rank-section";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  HERO_RANK_DEFAULT_QUERY,
+  type HeroRankDays,
+  type HeroRankTier,
+  getHeroList,
+  getHeroRankings,
+} from "@/lib/api/mlbb";
+import type {
+  HeroListRecord,
+  HeroRankRecord,
+  HeroRankRow,
+  HeroRelationEntry,
+  HeroRelationTargetSet,
+} from "@/lib/api/types";
 
-export default function Home() {
+type PageSearchParams = Record<string, string | string[] | undefined>;
+
+const dayOptions: HeroRankDays[] = [1, 3, 7, 15, 30];
+const rankOptions: HeroRankTier[] = [
+  "all",
+  "epic",
+  "legend",
+  "mythic",
+  "honor",
+  "glory",
+];
+
+const asSingle = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
+
+const parseDays = (value?: string): HeroRankDays => {
+  const numeric = Number(value);
+  return dayOptions.includes(numeric as HeroRankDays)
+    ? (numeric as HeroRankDays)
+    : HERO_RANK_DEFAULT_QUERY.days;
+};
+
+const parseRank = (value?: string): HeroRankTier =>
+  rankOptions.includes(value as HeroRankTier)
+    ? (value as HeroRankTier)
+    : HERO_RANK_DEFAULT_QUERY.rank;
+
+const applyHeroName = (
+  map: Map<number, string>,
+  rawId: number | undefined,
+  name?: string
+) => {
+  const heroId = Number(rawId);
+  if (!Number.isFinite(heroId) || heroId <= 0) {
+    return;
+  }
+
+  if (name) {
+    map.set(heroId, name);
+    return;
+  }
+
+  if (!map.has(heroId)) {
+    map.set(heroId, `Hero ${heroId}`);
+  }
+};
+
+const buildHeroNameMap = (
+  rankRecords: HeroRankRecord[],
+  heroList: HeroListRecord[]
+) => {
+  const map = new Map<number, string>();
+
+  heroList.forEach((hero) => {
+    applyHeroName(map, hero.hero_id, hero.hero?.data?.name);
+
+    const relations = [
+      hero.relation?.assist,
+      hero.relation?.strong,
+      hero.relation?.weak,
+    ];
+    relations.forEach((entry) => {
+      entry?.target_hero_id?.forEach((rawId, index) => {
+        const heroId = Number(rawId);
+        const name = entry?.target_hero?.[index]?.data?.name;
+        applyHeroName(map, heroId, name);
+      });
+    });
+  });
+
+  rankRecords.forEach((record) => {
+    applyHeroName(map, record.main_heroid, record.main_hero?.data?.name);
+    record.sub_hero?.forEach((subHero) => {
+      applyHeroName(map, subHero?.heroid, subHero?.hero?.data?.name);
+    });
+  });
+
+  return map;
+};
+
+const mapRelationTargets = (
+  entry: HeroRelationEntry | undefined,
+  heroNameMap: Map<number, string>
+) => {
+  if (!entry?.target_hero_id?.length) {
+    return [];
+  }
+
+  const seen = new Set<number>();
+
+  return entry.target_hero_id
+    .map((rawId, index) => {
+      const heroId = Number(rawId);
+      if (!Number.isFinite(heroId) || heroId <= 0 || seen.has(heroId)) {
+        return null;
+      }
+      seen.add(heroId);
+      const fallbackName = entry.target_hero?.[index]?.data?.name;
+      return {
+        id: heroId,
+        name: heroNameMap.get(heroId) ?? fallbackName ?? `Hero ${heroId}`,
+      };
+    })
+    .filter((value): value is { id: number; name: string } => value !== null);
+};
+
+const buildRelationTargetSet = (
+  relation: HeroRankRow["relation"],
+  heroNameMap: Map<number, string>
+): HeroRelationTargetSet | undefined => {
+  if (!relation) {
+    return undefined;
+  }
+
+  const targetSet: HeroRelationTargetSet = {
+    assist: mapRelationTargets(relation.assist, heroNameMap),
+    strong: mapRelationTargets(relation.strong, heroNameMap),
+    weak: mapRelationTargets(relation.weak, heroNameMap),
+  };
+
+  const hasTargets =
+    targetSet.assist.length || targetSet.strong.length || targetSet.weak.length;
+
+  return hasTargets ? targetSet : undefined;
+};
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<PageSearchParams>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const selectedDays = parseDays(asSingle(resolvedSearchParams?.days));
+  const selectedRank = parseRank(asSingle(resolvedSearchParams?.rank));
+
+  const [heroRankings, heroList] = await Promise.all([
+    getHeroRankings({
+      query: {
+        days: selectedDays,
+        rank: selectedRank,
+        size: 130,
+      },
+    }),
+    getHeroList(),
+  ]);
+
+  const relationMap = new Map(
+    heroList.heroes.map((hero) => [hero.hero_id, hero.relation])
+  );
+  const heroNameMap = buildHeroNameMap(heroRankings.rankings, heroList.heroes);
+
+  const rankingsWithRelations: HeroRankRow[] = heroRankings.rankings.map(
+    (record) => {
+      const relation = relationMap.get(record.main_heroid);
+      return {
+        ...record,
+        relation,
+        relationTargets: buildRelationTargetSet(relation, heroNameMap),
+      };
+    }
+  );
+
+  const lastUpdated = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="min-h-screen text-white">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 lg:py-16">
+        <header className="rounded-[2.5rem] border border-white/10 bg-white/5 px-6 py-10 shadow-[0_35px_120px_rgba(2,6,23,0.65)] backdrop-blur-xl lg:px-10">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.35em] text-white/60">
+                <Badge className="rounded-full border-green-400/50 bg-green-400/20 px-4 tracking-[0.4em] text-green-300 shadow-[0_0_20px_rgba(34,197,94,0.5)] animate-pulse">
+                  MLBB Analytics
+                </Badge>
+              </div>
+              <div className="space-y-4">
+                <h1 className="text-4xl font-semibold tracking-tight text-white lg:text-5xl">
+                  Real-time hero intelligence
+                </h1>
+                <p className="text-base text-white/70">
+                  Powered by{" "}
+                  <a
+                    href="https://mlbb-stats.ridwaanhall.com/"
+                    className="font-semibold text-primary underline-offset-4 hover:underline"
+                  >
+                    mlbb-stats.ridwaanhall.com
+                  </a>
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-white/65">
+                <span>Last sync: {lastUpdated}</span>
+                <Separator className="h-4 w-px bg-white/15" />
+                <span>Cache window: 15 minutes</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button variant="secondary" className="w-full sm:w-auto">
+                Export CSV
+              </Button>
+              <Button className="w-full sm:w-auto">Refresh data</Button>
+            </div>
+          </div>
+        </header>
+
+        <section className="space-y-6">
+          <HeroRankControls days={selectedDays} rank={selectedRank} />
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-white/60">
+                Hero rankings
+              </p>
+              <p className="text-xl font-semibold text-white">
+                {heroRankings.total} entries · timeframe {selectedDays} day
+                {selectedDays > 1 ? "s" : ""} · tier {selectedRank}
+              </p>
+            </div>
+            <HeroRankSection
+              columns={heroRankColumns}
+              data={rankingsWithRelations}
+              emptyMessage="No hero data for this filter."
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </div>
+        </section>
       </main>
     </div>
   );
