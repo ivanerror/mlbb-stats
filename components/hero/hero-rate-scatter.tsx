@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
   ZAxis,
+  Cell,
 } from "recharts";
 import type { TooltipContentProps } from "recharts";
 
@@ -362,19 +363,41 @@ export function HeroRateScatter({
               animationDuration={SCATTER_ANIMATION_MS}
               animationEasing="ease-out"
               animationBegin={0}
+              shape={(props: any) => {
+                const { cx, cy, payload } = props;
+                const isHighlighted = payload.id === highlightId;
+
+                if (isHighlighted) {
+                  return (
+                    <g>
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={10}
+                        fill="#ef4444"
+                        fillOpacity={1}
+                        stroke="#f87171"
+                        strokeWidth={3}
+                      />
+                    </g>
+                  );
+                }
+
+                return (
+                  <g>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={6}
+                      fill={payload.fill || "#8b5cf6"}
+                      fillOpacity={0.8}
+                      stroke="#c084fc"
+                      strokeWidth={1}
+                    />
+                  </g>
+                );
+              }}
             />
-            {highlightedDatum ? (
-              <Scatter
-                data={[highlightedDatum]}
-                fill="#facc15"
-                fillOpacity={1}
-                stroke="#fde047"
-                name="Selected Hero"
-                animationDuration={HIGHLIGHT_ANIMATION_MS}
-                animationEasing="ease-out"
-                animationBegin={0}
-              />
-            ) : null}
           </ScatterChart>
         </ResponsiveContainer>
       </CardContent>
