@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { Separator } from "@/components/ui/separator";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator as DropdownMenuSep,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
+import {
   HERO_RANK_DEFAULT_QUERY,
   type HeroRankDays,
   type HeroRankTier,
@@ -55,18 +64,6 @@ export function HeroRankControls({ days, rank }: HeroRankControlsProps) {
     });
   };
 
-  const handleDaysChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = Number(event.target.value) as HeroRankDays;
-    setLocalDays(value);
-    updateQuery({ days: value });
-  };
-
-  const handleRankChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value as HeroRankTier;
-    setLocalRank(value);
-    updateQuery({ rank: value });
-  };
-
   const handleReset = () => {
     setLocalDays(HERO_RANK_DEFAULT_QUERY.days);
     setLocalRank(HERO_RANK_DEFAULT_QUERY.rank);
@@ -91,35 +88,83 @@ export function HeroRankControls({ days, rank }: HeroRankControlsProps) {
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <label className="flex flex-col text-sm font-medium text-white/70">
               Timeframe
-              <select
-                value={localDays}
-                onChange={handleDaysChange}
-                disabled={pending}
-                className="mt-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-inner shadow-black/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/60"
-              >
-                {dayOptions.map((option) => (
-                  <option key={option} value={option}>
-                    Last {option} day{option > 1 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    disabled={pending}
+                    className="mt-1 justify-between rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-inner shadow-black/30 hover:bg-white/15"
+                  >
+                    {`Last ${localDays} day${localDays > 1 ? "s" : ""}`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  side="bottom"
+                  className="min-w-[12rem]"
+                >
+                  <DropdownMenuLabel>Select timeframe</DropdownMenuLabel>
+                  <DropdownMenuSep />
+                  <DropdownMenuRadioGroup
+                    value={String(localDays)}
+                    onValueChange={(val) => {
+                      const value = Number(val) as HeroRankDays;
+                      setLocalDays(value);
+                      updateQuery({ days: value });
+                    }}
+                  >
+                    {dayOptions.map((option) => (
+                      <DropdownMenuRadioItem
+                        key={option}
+                        value={String(option)}
+                      >
+                        {`Last ${option} day${option > 1 ? "s" : ""}`}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </label>
+
             <Separator className="hidden h-8 w-px bg-white/10 md:block" />
+
             <label className="flex flex-col text-sm font-medium text-white/70">
               Rank tier
-              <select
-                value={localRank}
-                onChange={handleRankChange}
-                disabled={pending}
-                className="mt-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-inner shadow-black/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/60"
-              >
-                {rankOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    disabled={pending}
+                    className="mt-1 justify-between rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-inner shadow-black/30 hover:bg-white/15"
+                  >
+                    {localRank.charAt(0).toUpperCase() + localRank.slice(1)}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  side="bottom"
+                  className="min-w-[12rem]"
+                >
+                  <DropdownMenuLabel>Select rank tier</DropdownMenuLabel>
+                  <DropdownMenuSep />
+                  <DropdownMenuRadioGroup
+                    value={localRank}
+                    onValueChange={(val) => {
+                      const value = val as HeroRankTier;
+                      setLocalRank(value);
+                      updateQuery({ rank: value });
+                    }}
+                  >
+                    {rankOptions.map((option) => (
+                      <DropdownMenuRadioItem key={option} value={option}>
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </label>
+
             <Button
               variant="ghost"
               onClick={handleReset}

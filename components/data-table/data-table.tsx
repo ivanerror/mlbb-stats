@@ -5,6 +5,7 @@ import {
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   type ColumnDef,
   type SortingState,
   useReactTable,
@@ -41,17 +42,66 @@ export function DataTable<TData, TValue>({
   }, []);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState<string>("");
+
+  const firstColumnId = React.useMemo(() => {
+    const first = (columns?.[0] ?? {}) as any;
+    return (first as any)?.accessorKey ?? (first as any)?.id ?? "";
+  }, [columns]);
 
   const table = useReactTable({
     data,
     columns,
     state: {
       sorting,
+      globalFilter,
     },
     enableSortingRemoval: false,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      if (!filterValue) return true;
+      const q = String(filterValue).toLowerCase();
+      try {
+        // Read only the first column value (intended "Hero" column)
+        let value: unknown;
+        if (firstColumnId) {
+          // @ts-ignore tanstack accepts string id
+          value = row.getValue(firstColumnId as string);
+        } else {
+          const firstCell = row.getVisibleCells()?.[0];
+          value = firstCell ? firstCell.getValue() : undefined;
+        }
+
+        // Normalize to text
+        let text = "";
+        if (typeof value === "string" || typeof value === "number") {
+          text = String(value);
+        } else if (value && typeof value === "object") {
+          const v = value as any;
+          // Try common shapes: { data: { name } } or { name }
+          text = v?.data?.name ?? v?.name ?? "";
+        }
+
+        // Fallbacks based on known hero data shape
+        if (!text) {
+          const orig: any = row.original as any;
+          text =
+            orig?.main_hero?.data?.name ??
+            orig?.main_hero?.name ??
+            (typeof orig?.main_heroid !== "undefined"
+              ? String(orig.main_heroid)
+              : "");
+        }
+
+        return text.toLowerCase().includes(q);
+      } catch {
+        return false;
+      }
+    },
   });
 
   if (!mounted) {
@@ -63,6 +113,24 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="rounded-3xl border border-white/10 bg-white/5 shadow-[0_25px_80px_rgba(2,6,23,0.55)] backdrop-blur-xl transition-shadow hover:shadow-[0_30px_90px_rgba(2,6,23,0.65)]">
+        <div className="flex items-center gap-3 p-4 border-b border-white/10">
+          <input
+            type="text"
+            value={globalFilter ?? ""}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-inner shadow-black/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/60 placeholder:text-white/50"
+          />
+          {globalFilter ? (
+            <button
+              type="button"
+              onClick={() => setGlobalFilter("")}
+              className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white/80 hover:text-white shadow-inner shadow-black/30"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
         <div className="max-h-[65vh] overflow-y-auto">
           <Table className="min-w-full">
             <TableHeader>
